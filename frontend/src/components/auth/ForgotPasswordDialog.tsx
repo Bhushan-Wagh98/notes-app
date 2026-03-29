@@ -1,3 +1,10 @@
+/**
+ * @module components/auth/ForgotPasswordDialog
+ * @description Two-step password reset dialog.
+ * Step 1: Enter email → receive OTP.
+ * Step 2: Enter OTP + new password → reset complete.
+ */
+
 import { useState } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -6,10 +13,8 @@ import {
 } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
-
-const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
-const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
-const PW_HINT = "Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character";
+import { authApi } from "../../api";
+import { PW_REGEX, PW_HINT } from "../../constants";
 
 export default function ForgotPasswordDialog({ open, onClose, prefillEmail }: {
   open: boolean; onClose: () => void; prefillEmail?: string;
@@ -28,16 +33,13 @@ export default function ForgotPasswordDialog({ open, onClose, prefillEmail }: {
     setShowPw(false); setError(""); setMessage("");
   };
 
+  /** Requests a password-reset OTP for the given email. */
   const handleSendOtp = async () => {
     setError(""); setMessage("");
     if (!email) { setError("Email is required"); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      const res = await authApi.forgotPassword(email);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setStep("otp");
@@ -49,17 +51,14 @@ export default function ForgotPasswordDialog({ open, onClose, prefillEmail }: {
     }
   };
 
+  /** Submits the OTP and new password to complete the reset. */
   const handleReset = async () => {
     setError(""); setMessage("");
     if (!otp || otp.length !== 6) { setError("Please enter the 6-digit OTP"); return; }
     if (!PW_REGEX.test(newPassword)) { setError(PW_HINT); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: otp.trim(), newPassword }),
-      });
+      const res = await authApi.resetPassword(email, otp.trim(), newPassword);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessage(data.message);

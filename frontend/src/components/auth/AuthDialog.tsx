@@ -1,3 +1,9 @@
+/**
+ * @module components/auth/AuthDialog
+ * @description Login / Sign-up dialog with tabbed interface.
+ * Sign-up uses an OTP email verification flow.
+ */
+
 import { useState } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -7,11 +13,9 @@ import {
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useAuth } from "../../context/AuthContext";
+import { authApi } from "../../api";
+import { PW_REGEX, PW_HINT } from "../../constants";
 import ForgotPasswordDialog from "./ForgotPasswordDialog";
-
-const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
-const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
-const PW_HINT = "Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character";
 
 export default function AuthDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { login } = useAuth();
@@ -28,11 +32,13 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
   const [loading, setLoading] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
+  /** Resets all form fields back to their initial state. */
   const reset = () => {
     setFirstName(""); setLastName(""); setEmail(""); setPassword(""); setShowPw(false);
     setOtp(""); setOtpSent(false); setError(""); setMessage("");
   };
 
+  /** Password visibility toggle adornment. */
   const pwToggle = (
     <InputAdornment position="end">
       <IconButton size="small" onClick={() => setShowPw(!showPw)} edge="end">
@@ -41,15 +47,12 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
     </InputAdornment>
   );
 
+  /** Authenticates the user with email + password. */
   const handleLogin = async () => {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await authApi.login(email, password);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       login(data.token, data.email, data.firstName, data.isAdmin);
@@ -61,16 +64,15 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
     }
   };
 
+  /** Sends a signup OTP to the provided email after client-side validation. */
   const handleSendOtp = async () => {
     setError(""); setMessage("");
     if (!firstName.trim() || !lastName.trim()) { setError("First and last name required"); return; }
     if (!PW_REGEX.test(password)) { setError(PW_HINT); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, firstName: firstName.trim(), lastName: lastName.trim() }),
+      const res = await authApi.sendOtp({
+        email, password, firstName: firstName.trim(), lastName: lastName.trim(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -83,16 +85,13 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
     }
   };
 
+  /** Verifies the OTP and completes account creation. */
   const handleVerifyOtp = async () => {
     setError(""); setMessage("");
     if (!otp || otp.length !== 6) { setError("Please enter the 6-digit OTP"); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/verify-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: otp.trim() }),
-      });
+      const res = await authApi.verifyOtp(email, otp.trim());
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Verification failed");
       login(data.token, data.email, data.firstName, data.isAdmin);
@@ -120,6 +119,7 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
           {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
           {message && <Alert severity="success" sx={{ mb: 1 }}>{message}</Alert>}
 
+          {/* Login tab */}
           {tab === 0 ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
               <TextField label="Email" type="email" size="small" required
@@ -134,6 +134,7 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
               </Button>
             </Box>
           ) : !otpSent ? (
+            /* Sign-up form — collect details before OTP */
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <TextField label="First Name" size="small" required fullWidth
@@ -150,6 +151,7 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
                 slotProps={{ input: { endAdornment: pwToggle } }} />
             </Box>
           ) : (
+            /* OTP verification step */
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Enter the 6-digit OTP sent to <strong>{email}</strong>
@@ -158,7 +160,8 @@ export default function AuthDialog({ open, onClose }: { open: boolean; onClose: 
                 onChange={(e) => setOtp(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
                 inputProps={{ maxLength: 6 }} autoFocus />
-              <Button size="small" onClick={handleSendOtp} disabled={loading} sx={{ alignSelf: "flex-start", textTransform: "none" }}>
+              <Button size="small" onClick={handleSendOtp} disabled={loading}
+                sx={{ alignSelf: "flex-start", textTransform: "none" }}>
                 Resend OTP
               </Button>
             </Box>

@@ -1,3 +1,9 @@
+/**
+ * @module components/notes/NotesSidebar
+ * @description Right-side drawer listing the authenticated user's notes.
+ * Supports toggling visibility, read-only status, and deleting notes.
+ */
+
 import { useState, useEffect } from "react";
 import {
   Drawer, Box, Typography, IconButton, List, ListItem,
@@ -12,20 +18,11 @@ import EditOffIcon from "@mui/icons-material/EditOff";
 import EditIcon from "@mui/icons-material/Edit";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useAuth } from "../../context/AuthContext";
-import LoadingChip from "../common/LoadingChip";
-import LoadingIconButton from "../common/LoadingIconButton";
+import { notesApi } from "../../api";
+import { LoadingChip, LoadingIconButton } from "../common";
+import type { Note } from "../../types";
 
-const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
 const DRAWER_WIDTH = 320;
-
-interface Note {
-  _id: string;
-  title: string;
-  isPrivate: boolean;
-  isReadOnly: boolean;
-  isLocked: boolean;
-  updatedAt: string;
-}
 
 interface NotesSidebarProps {
   open: boolean;
@@ -38,41 +35,32 @@ export default function NotesSidebar({ open, onClose }: NotesSidebarProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /* Fetch the user's notes every time the drawer opens. */
   useEffect(() => {
     if (!open || !isLoggedIn) return;
-    fetch(`${API}/api/notes/my-notes`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    notesApi.getMyNotes(token!)
       .then((r) => r.json())
       .then(setNotes)
       .catch(() => {});
   }, [open, isLoggedIn, token]);
 
+  /** Toggles a note's public/private visibility. */
   const toggleVisibility = async (id: string, current: boolean) => {
-    const res = await fetch(`${API}/api/notes/${id}/visibility`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ isPrivate: !current }),
-    });
+    const res = await notesApi.toggleVisibility(token!, id, !current);
     if (res.ok) setNotes((prev) => prev.map((n) => n._id === id ? { ...n, isPrivate: !current } : n));
   };
 
+  /** Toggles a note's editable/read-only status. */
   const toggleReadOnly = async (id: string, current: boolean) => {
-    const res = await fetch(`${API}/api/notes/${id}/read-only`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ isReadOnly: !current }),
-    });
+    const res = await notesApi.toggleReadOnly(token!, id, !current);
     if (res.ok) setNotes((prev) => prev.map((n) => n._id === id ? { ...n, isReadOnly: !current } : n));
   };
 
+  /** Permanently deletes the selected note after confirmation. */
   const deleteNote = async () => {
     if (!deleteId) return;
     setDeleting(true);
-    const res = await fetch(`${API}/api/notes/${deleteId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await notesApi.deleteNote(token!, deleteId);
     if (res.ok) setNotes((prev) => prev.filter((n) => n._id !== deleteId));
     setDeleting(false);
     setDeleteId(null);
@@ -83,15 +71,14 @@ export default function NotesSidebar({ open, onClose }: NotesSidebarProps) {
   return (
     <>
       <Drawer
-        anchor="right"
-        open={open}
-        onClose={onClose}
+        anchor="right" open={open} onClose={onClose}
         PaperProps={{ sx: { width: DRAWER_WIDTH } }}
       >
         <Box sx={{ display: "flex", alignItems: "center", p: 1, borderBottom: 1, borderColor: "divider" }}>
           <IconButton onClick={onClose}><ChevronRightIcon /></IconButton>
           <Typography variant="h6" sx={{ ml: 1 }}>My Notes</Typography>
         </Box>
+
         <List dense>
           {notes.length === 0 && (
             <Typography variant="body2" sx={{ p: 2, color: "text.secondary" }}>No notes yet</Typography>
@@ -110,6 +97,8 @@ export default function NotesSidebar({ open, onClose }: NotesSidebarProps) {
                   </IconButton>
                 </Tooltip>
               </Box>
+
+              {/* Status chips and action buttons */}
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
                 {note.isLocked ? (
                   <Chip icon={<LockIcon sx={{ fontSize: 14 }} />} label="Locked by Admin"
@@ -144,6 +133,7 @@ export default function NotesSidebar({ open, onClose }: NotesSidebarProps) {
         </List>
       </Drawer>
 
+      {/* Delete confirmation dialog */}
       <Dialog open={!!deleteId} onClose={() => setDeleteId(null)} maxWidth="xs">
         <DialogTitle>Delete Note</DialogTitle>
         <DialogContent>

@@ -1,3 +1,9 @@
+/**
+ * @module components/auth/ProfileDialog
+ * @description Profile editing dialog allowing the user to update their
+ * display name and change their password.
+ */
+
 import { useState } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -7,11 +13,9 @@ import {
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useAuth } from "../../context/AuthContext";
+import { authApi } from "../../api";
+import { PW_REGEX, PW_HINT } from "../../constants";
 import ForgotPasswordDialog from "./ForgotPasswordDialog";
-
-const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
-const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$/;
-const PW_HINT = "Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character";
 
 export default function ProfileDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { token, email, setFirstName: setCtxFirstName } = useAuth();
@@ -26,6 +30,7 @@ export default function ProfileDialog({ open, onClose }: { open: boolean; onClos
   const [loading, setLoading] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
+  /** Reusable password-visibility toggle adornment. */
   const pwToggle = (show: boolean, toggle: () => void) => (
     <InputAdornment position="end">
       <IconButton size="small" onClick={toggle} edge="end">
@@ -34,16 +39,13 @@ export default function ProfileDialog({ open, onClose }: { open: boolean; onClos
     </InputAdornment>
   );
 
+  /** Sends updated first/last name to the server. */
   const handleUpdateName = async () => {
     setError(""); setMsg("");
     if (!firstName.trim() || !lastName.trim()) { setError("Both names required"); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/profile`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
-      });
+      const res = await authApi.updateProfile(token!, firstName.trim(), lastName.trim());
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setCtxFirstName(data.firstName);
@@ -56,17 +58,14 @@ export default function ProfileDialog({ open, onClose }: { open: boolean; onClos
     }
   };
 
+  /** Validates and submits a password change request. */
   const handleChangePassword = async () => {
     setError(""); setMsg("");
     if (!currentPassword || !newPassword) { setError("Both passwords required"); return; }
     if (!PW_REGEX.test(newPassword)) { setError(PW_HINT); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/auth/change-password`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
+      const res = await authApi.changePassword(token!, currentPassword, newPassword);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMsg("Password changed!");
@@ -86,6 +85,7 @@ export default function ProfileDialog({ open, onClose }: { open: boolean; onClos
           {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
           {msg && <Alert severity="success" sx={{ mb: 1 }}>{msg}</Alert>}
 
+          {/* Name section */}
           <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>Change Name</Typography>
           <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
             <TextField label="First Name" size="small" required fullWidth
@@ -99,6 +99,7 @@ export default function ProfileDialog({ open, onClose }: { open: boolean; onClos
 
           <Divider sx={{ my: 1 }} />
 
+          {/* Password section */}
           <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>Change Password</Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             <TextField label="Current Password" type={showCurPw ? "text" : "password"} size="small" required
@@ -111,8 +112,7 @@ export default function ProfileDialog({ open, onClose }: { open: boolean; onClos
               slotProps={{ input: { endAdornment: pwToggle(showNewPw, () => setShowNewPw(!showNewPw)) } }} />
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
-            <Button size="small" onClick={() => setForgotOpen(true)}
-              sx={{ textTransform: "none", p: 0 }}>
+            <Button size="small" onClick={() => setForgotOpen(true)} sx={{ textTransform: "none", p: 0 }}>
               Forgot Password?
             </Button>
             <Button variant="contained" size="small" onClick={handleChangePassword} disabled={loading}>

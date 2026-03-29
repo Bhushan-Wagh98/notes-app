@@ -1,13 +1,18 @@
+/**
+ * @module components/notes/CopyUrl
+ * @description Side panel for the document page. Provides URL copying,
+ * new-note creation, owner info, and privacy/read-only toggles.
+ */
+
 import { useEffect, useState } from "react";
 import { Box, TextField, IconButton, Button, Snackbar, Switch, Typography, Chip, Tooltip } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import PersonIcon from "@mui/icons-material/Person";
 import LockIcon from "@mui/icons-material/Lock";
 import PrintIcon from "@mui/icons-material/Print";
-import { useAuth } from "../../context/AuthContext";
 import { useParams } from "react-router-dom";
-
-const API = import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
+import { useAuth } from "../../context/AuthContext";
+import { notesApi } from "../../api";
 
 interface CopyUrlProps {
   isOwner?: boolean;
@@ -29,29 +34,24 @@ function CopyUrl({ isOwner, isPrivate: initialPrivate, isReadOnly: initialReadOn
   useEffect(() => { setIsPrivate(initialPrivate ?? false); }, [initialPrivate]);
   useEffect(() => { setIsReadOnly(initialReadOnly ?? false); }, [initialReadOnly]);
 
+  /** Copies the current document URL to the clipboard. */
   function handleCopy() {
     navigator.clipboard.writeText(url);
     setCopied(true);
   }
 
+  /** Toggles note visibility between public and private via the API. */
   async function toggleVisibility() {
     const newVal = !isPrivate;
     setIsPrivate(newVal);
-    await fetch(`${API}/api/notes/${id}/visibility`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ isPrivate: newVal }),
-    }).catch(() => setIsPrivate(!newVal));
+    await notesApi.toggleVisibility(token!, id!, newVal).catch(() => setIsPrivate(!newVal));
   }
 
+  /** Toggles note between editable and read-only via the API. */
   async function toggleReadOnly() {
     const newVal = !isReadOnly;
     setIsReadOnly(newVal);
-    await fetch(`${API}/api/notes/${id}/read-only`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ isReadOnly: newVal }),
-    }).catch(() => setIsReadOnly(!newVal));
+    await notesApi.toggleReadOnly(token!, id!, newVal).catch(() => setIsReadOnly(!newVal));
   }
 
   return (
@@ -63,7 +63,7 @@ function CopyUrl({ isOwner, isPrivate: initialPrivate, isReadOnly: initialReadOn
           bgcolor: "primary.main", borderRadius: 2, height: "fit-content",
         }}
       >
-        {/* Copy URL */}
+        {/* Copy URL input + button */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <TextField
             size="small" value={url}
@@ -80,6 +80,7 @@ function CopyUrl({ isOwner, isPrivate: initialPrivate, isReadOnly: initialReadOn
           create new note
         </Button>
 
+        {/* Owner info chip */}
         {ownerName && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2">Created By:</Typography>
@@ -89,10 +90,14 @@ function CopyUrl({ isOwner, isPrivate: initialPrivate, isReadOnly: initialReadOn
             </Tooltip>
           </Box>
         )}
+
+        {/* Admin lock indicator */}
         {isLocked && (
-          <Chip icon={<LockIcon />} label="Locked by Admin" size="small" color="error" variant="outlined" sx={{ bgcolor: "white", alignSelf: "flex-start" }} />
+          <Chip icon={<LockIcon />} label="Locked by Admin" size="small" color="error"
+            variant="outlined" sx={{ bgcolor: "white", alignSelf: "flex-start" }} />
         )}
 
+        {/* Privacy & read-only toggles — only shown to the note owner */}
         {isLoggedIn && isOwner && !isLocked && (
           <>
             <Box sx={{ display: "flex", alignItems: "center" }}>
