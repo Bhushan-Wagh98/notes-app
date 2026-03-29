@@ -84,12 +84,6 @@ See individual READMEs for details:
 
 ![Print](./screenshots/print.png)
 
-## Team
-
-- [Bhushan Wagh](https://github.com/Bhushan-Wagh98)
-- [Chandan Kumar](https://github.com/Goluchandan)
-- [Ankur Singh Yadav](https://github.com/AnkurSinghYadav09)
-
 ## License
 
 ISC
