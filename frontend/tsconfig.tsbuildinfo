@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/copyurl.tsx","./src/components/logo.tsx","./src/components/printbutton.tsx","./src/components/texteditor.tsx","./src/pages/documentpage.tsx","./src/pages/helppage.tsx","./src/types/quill.d.ts","./vite-env.d.ts"],"version":"5.7.3"}
