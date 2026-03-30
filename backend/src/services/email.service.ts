@@ -5,6 +5,7 @@
  */
 
 import nodemailer from "nodemailer";
+import SMTPTransport from "nodemailer/lib/smtp-transport";
 import { env } from "../config/env";
 
 /** Reusable SMTP transporter configured with Gmail credentials. */
@@ -14,7 +15,7 @@ const transporter = nodemailer.createTransport({
   secure: true,
   auth: { user: env.SMTP_EMAIL, pass: env.SMTP_PASSWORD },
   tls: { family: 4 },
-});
+} as SMTPTransport.Options);
 
 /**
  * Sends an OTP email to the specified recipient.
