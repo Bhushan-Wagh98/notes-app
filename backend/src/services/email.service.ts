@@ -9,8 +9,11 @@ import { env } from "../config/env";
 
 /** Reusable SMTP transporter configured with Gmail credentials. */
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: { user: env.SMTP_EMAIL, pass: env.SMTP_PASSWORD },
+  tls: { family: 4 },
 });
 
 /**
