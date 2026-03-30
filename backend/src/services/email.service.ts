@@ -4,9 +4,13 @@
  * Used for sending OTP codes during signup and password reset flows.
  */
 
+import dns from "node:dns";
 import nodemailer from "nodemailer";
 import SMTPTransport from "nodemailer/lib/smtp-transport";
 import { env } from "../config/env";
+
+// Force Node.js to resolve DNS over IPv4 only
+dns.setDefaultResultOrder("ipv4first");
 
 /** Reusable SMTP transporter configured with Gmail credentials. */
 const transporter = nodemailer.createTransport({
@@ -14,7 +18,6 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: { user: env.SMTP_EMAIL, pass: env.SMTP_PASSWORD },
-  tls: { family: 4 },
 } as SMTPTransport.Options);
 
 /**
