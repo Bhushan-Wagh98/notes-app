@@ -16,4 +16,6 @@ export const env = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL?.trim() || "",
   SMTP_EMAIL: process.env.SMTP_EMAIL?.trim() || "",
   SMTP_PASSWORD: process.env.SMTP_PASSWORD?.trim() || "",
+  RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || "",
+  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL?.trim() || "onboarding@resend.dev",
 };
