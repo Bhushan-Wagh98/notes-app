@@ -14,7 +14,9 @@ import app from "./app";
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: env.ALLOWED_ORIGINS, methods: ["GET", "POST"] },
+  cors: { origin: env.ALLOWED_ORIGINS, methods: ["GET", "POST"], credentials: true },
+  transports: ["polling", "websocket"],
+  allowEIO3: true,
 });
 
 // Connect to the database, then register socket handlers and start the server.
