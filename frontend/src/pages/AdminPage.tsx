@@ -13,6 +13,8 @@ import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import LockIcon from "@mui/icons-material/Lock";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import LoadingIconButton from "../components/common/LoadingIconButton";
 
@@ -42,6 +44,12 @@ function NoteRow({ note, token, onDelete, onToggleLock }: {
 }) {
   return (
     <TableRow>
+      <TableCell>
+        <Link to={`/documents/${note._id}`} style={{ color: "inherit" }}>{note._id}</Link>
+        <IconButton size="small" href={`/documents/${note._id}`} target="_blank" sx={{ ml: 0.5 }}>
+          <OpenInNewIcon fontSize="small" />
+        </IconButton>
+      </TableCell>
       <TableCell>{note.title}</TableCell>
       <TableCell>
         <Box sx={{ display: "flex", gap: 0.5 }}>
@@ -52,7 +60,6 @@ function NoteRow({ note, token, onDelete, onToggleLock }: {
       </TableCell>
       <TableCell>{new Date(note.updatedAt).toLocaleString()}</TableCell>
       <TableCell align="right">
-        <Button size="small" href={`/documents/${note._id}`} target="_blank">Open</Button>
         <LoadingIconButton
           title={note.isLocked ? "Unlock" : "Lock"}
           color={note.isLocked ? "success" : "warning"}
@@ -81,6 +88,7 @@ function NotesTable({ notes, token, onDelete, onToggleLock }: {
     <Table size="small">
       <TableHead>
         <TableRow>
+          <TableCell>Note ID</TableCell>
           <TableCell>Title</TableCell>
           <TableCell>Status</TableCell>
           <TableCell>Last Updated</TableCell>
@@ -100,6 +108,7 @@ function UserRow({ user, token, onDeleteUser }: { user: User; token: string; onD
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(user.isAdmin);
@@ -107,12 +116,14 @@ function UserRow({ user, token, onDeleteUser }: { user: User; token: string; onD
 
   const fetchNotes = async () => {
     if (loaded) { setOpen(!open); return; }
+    setLoadingNotes(true);
+    setOpen(true);
     const res = await fetch(`${API}/api/notes/admin/users/${user._id}/notes`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     setNotes(await res.json());
     setLoaded(true);
-    setOpen(true);
+    setLoadingNotes(false);
   };
 
   const deleteNote = async (noteId: string) => {
@@ -194,7 +205,9 @@ function UserRow({ user, token, onDeleteUser }: { user: User; token: string; onD
         <TableCell colSpan={4} sx={{ py: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box sx={{ m: 1 }}>
-              <NotesTable notes={notes} token={token} onDelete={deleteNote} onToggleLock={toggleLock} />
+              {loadingNotes
+                ? <Box sx={{ p: 2, textAlign: "center" }}><CircularProgress size={24} /></Box>
+                : <NotesTable notes={notes} token={token} onDelete={deleteNote} onToggleLock={toggleLock} />}
             </Box>
           </Collapse>
         </TableCell>
@@ -219,29 +232,36 @@ function UserRow({ user, token, onDeleteUser }: { user: User; token: string; onD
 }
 
 export default function AdminPage() {
-  const { token, isAdmin } = useAuth();
+  const { token, isAdmin, ready } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [myNotes, setMyNotes] = useState<Note[]>([]);
   const [showMyNotes, setShowMyNotes] = useState(false);
   const [anonNotes, setAnonNotes] = useState<Note[]>([]);
   const [showAnon, setShowAnon] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMyNotes, setLoadingMyNotes] = useState(false);
+  const [loadingAnon, setLoadingAnon] = useState(false);
 
   useEffect(() => {
     if (!isAdmin || !token) return;
     fetch(`${API}/api/notes/admin/users`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json()).then(setUsers).catch(() => {});
+      .then((r) => r.json()).then(setUsers).catch(() => {}).finally(() => setLoading(false));
   }, [isAdmin, token]);
 
   const fetchMyNotes = async () => {
     if (myNotes.length > 0) { setShowMyNotes(!showMyNotes); return; }
+    setLoadingMyNotes(true);
     const res = await fetch(`${API}/api/notes/my-notes`, { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) { setMyNotes(await res.json()); setShowMyNotes(true); }
+    setLoadingMyNotes(false);
   };
 
   const fetchAnonNotes = async () => {
     if (anonNotes.length > 0) { setShowAnon(!showAnon); return; }
+    setLoadingAnon(true);
     const res = await fetch(`${API}/api/notes/admin/anonymous-notes`, { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) { setAnonNotes(await res.json()); setShowAnon(true); }
+    setLoadingAnon(false);
   };
 
   const adminDeleteNote = async (noteId: string, setter: React.Dispatch<React.SetStateAction<Note[]>>) => {
@@ -261,6 +281,10 @@ export default function AdminPage() {
     }
   };
 
+  if (!ready || loading) {
+    return <Container sx={{ mt: 4, textAlign: "center" }}><CircularProgress /></Container>;
+  }
+
   if (!isAdmin) {
     return <Container sx={{ mt: 4, textAlign: "center" }}><Typography variant="h5" color="error">Access Denied</Typography></Container>;
   }
@@ -271,7 +295,9 @@ export default function AdminPage() {
 
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>My Notes</Typography>
-        <Button size="small" variant="outlined" onClick={fetchMyNotes}>{showMyNotes ? "Hide" : "Show"}</Button>
+        <Button size="small" variant="outlined" onClick={fetchMyNotes} disabled={loadingMyNotes}>
+          {loadingMyNotes ? <CircularProgress size={20} /> : showMyNotes ? "Hide" : "Show"}
+        </Button>
       </Box>
       <Collapse in={showMyNotes}>
         <Paper elevation={1} sx={{ mb: 3 }}>
@@ -305,7 +331,9 @@ export default function AdminPage() {
 
       <Box sx={{ display: "flex", alignItems: "center", mt: 4, mb: 2, gap: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>Anonymous Notes</Typography>
-        <Button size="small" variant="outlined" onClick={fetchAnonNotes}>{showAnon ? "Hide" : "Show"}</Button>
+        <Button size="small" variant="outlined" onClick={fetchAnonNotes} disabled={loadingAnon}>
+          {loadingAnon ? <CircularProgress size={20} /> : showAnon ? "Hide" : "Show"}
+        </Button>
       </Box>
       <Collapse in={showAnon}>
         <Paper elevation={1}>

@@ -21,6 +21,7 @@ interface AuthContextType extends AuthState {
   logout: () => void;
   setFirstName: (name: string) => void;
   isLoggedIn: boolean;
+  ready: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>({
     token: null, email: null, firstName: null, isAdmin: false,
   });
+  const [ready, setReady] = useState(false);
 
   /* Rehydrate auth state from localStorage on initial mount. */
   useEffect(() => {
@@ -38,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const firstName = localStorage.getItem("firstName");
     const isAdmin = localStorage.getItem("isAdmin") === "true";
     if (token && email) setAuth({ token, email, firstName, isAdmin });
+    setReady(true);
   }, []);
 
   /** Persists credentials and updates context after successful authentication. */
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, logout, setFirstName, isLoggedIn: !!auth.token }}>
+    <AuthContext.Provider value={{ ...auth, login, logout, setFirstName, isLoggedIn: !!auth.token, ready }}>
       {children}
     </AuthContext.Provider>
   );
