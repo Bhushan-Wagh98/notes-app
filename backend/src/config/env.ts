@@ -16,4 +16,5 @@ export const env = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL?.trim() || "",
   SMTP_EMAIL: process.env.SMTP_EMAIL?.trim() || "",
   SMTP_PASSWORD: process.env.SMTP_PASSWORD?.trim() || "",
+  BREVO_API_KEY: process.env.BREVO_API_KEY?.trim() || "",
 };

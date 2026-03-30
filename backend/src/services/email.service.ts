@@ -1,17 +1,10 @@
 /**
  * @module services/email
- * @description Email delivery service using Nodemailer with Gmail SMTP.
+ * @description Email delivery service using Brevo (Sendinblue) HTTP API.
  * Used for sending OTP codes during signup and password reset flows.
  */
 
-import nodemailer from "nodemailer";
 import { env } from "../config/env";
-
-/** Reusable SMTP transporter configured with Gmail credentials. */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: { user: env.SMTP_EMAIL, pass: env.SMTP_PASSWORD },
-});
 
 /**
  * Sends an OTP email to the specified recipient.
@@ -26,10 +19,22 @@ export const sendOtpEmail = async (
   subject: string,
   purpose: string,
 ): Promise<void> => {
-  await transporter.sendMail({
-    from: `"Share Notes" <${env.SMTP_EMAIL}>`,
-    to,
-    subject,
-    html: `<h2>Your ${purpose} OTP is: <strong>${otp}</strong></h2><p>This code expires in 5 minutes.</p>`,
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": env.BREVO_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: "Share Notes", email: env.SMTP_EMAIL },
+      to: [{ email: to }],
+      subject,
+      htmlContent: `<h2>Your ${purpose} OTP is: <strong>${otp}</strong></h2><p>This code expires in 5 minutes.</p>`,
+    }),
   });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Brevo email failed: ${err}`);
+  }
 };
